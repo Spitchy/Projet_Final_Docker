@@ -4,6 +4,10 @@
 -- depuis le conteneur web).
 -- Ce script n'est exécuté qu'au premier démarrage, quand le volume est vide.
 
+-- le client mysql de l'entrypoint lit le fichier en latin1 par défaut :
+-- sans cette ligne, les accents de l'article d'exemple sont corrompus
+SET NAMES utf8mb4;
+
 CREATE TABLE IF NOT EXISTS articles (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     title VARCHAR(100) NOT NULL,
