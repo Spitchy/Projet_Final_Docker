@@ -370,6 +370,14 @@ Le pipeline exécuté sur `main` (commit `d9bc804`) a réussi ses quatre jobs en
 | [`ishakdocker67/projet-docker-web`](https://hub.docker.com/r/ishakdocker67/projet-docker-web) | `latest`, `d9bc8046b8cf3b624319e31ef49259964ce0b99b` |
 | [`ishakdocker67/projet-docker-db`](https://hub.docker.com/r/ishakdocker67/projet-docker-db) | `latest`, `d9bc8046b8cf3b624319e31ef49259964ce0b99b` |
 
+![Exécution réussie du pipeline GitHub Actions sur main](ci-pipeline.png)
+
+![Tags de l'image web sur Docker Hub (amd64 : 167,94 Mo, arm64 : 161,08 Mo compressés)](dockerhub-tags-web.png)
+
+![Tags de l'image db sur Docker Hub (amd64 : 232,15 Mo, arm64 : 227,04 Mo compressés)](dockerhub-tags-db.png)
+
+Docker Hub affiche les tailles **compressées** : 168 Mo pour l'image web (contre 716 Mo décompressés en local) et 232 Mo pour la base. C'est le volume réellement téléchargé lors d'un `docker pull`.
+
 La première exécution sur `main` avait échoué avec `invalid tag "/projet-docker-db:latest"`. Le secret `DOCKERHUB_USERNAME` contenait un caractère parasite (probablement un retour à la ligne collé avec la valeur), ce qui coupait le nom d'image en deux. Le workflow nettoie désormais le nom d'utilisateur (suppression des espaces, passage en minuscules) et vérifie la présence des secrets avant toute connexion. Nous avons aussi désactivé `fail-fast` pour qu'une image en échec n'annule plus la publication de l'autre.
 
 # Partie 8 — Tests, documentation et soutenance
