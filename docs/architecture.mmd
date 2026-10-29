@@ -1,0 +1,22 @@
+flowchart LR
+    user(["Navigateur<br/>http://localhost:8080"])
+
+    subgraph host["Machine hôte (Docker Engine)"]
+        direction LR
+        subgraph net["Réseau bridge app-network"]
+            direction LR
+            web["<b>web</b><br/>PHP 8.2 + Apache<br/>USER www-data · read_only<br/>healthcheck /healthz.php"]
+            db["<b>db</b><br/>MySQL 8.4<br/>USER mysql · read_only<br/>healthcheck mysqladmin ping"]
+            adminer["<b>adminer</b><br/>(profil admin)"]
+        end
+        vol[("Volume nommé<br/>db-data")]
+        sec[/"Secrets<br/>db_password<br/>db_root_password"/]
+    end
+
+    user -- "8080 → 80" --> web
+    web -- "PDO db:3306" --> db
+    adminer -. "db:3306" .-> db
+    db --- vol
+    sec -. "/run/secrets" .-> web
+    sec -. "/run/secrets" .-> db
+    user -. "127.0.0.1:8081" .-> adminer
