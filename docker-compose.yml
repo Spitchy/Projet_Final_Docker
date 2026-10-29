@@ -1,0 +1,131 @@
+# Stack applicative : Apache/PHP (web) + MySQL (db) + Adminer (optionnel)
+# Démarrage : ./scripts/init-secrets.sh && docker compose up -d
+name: ${COMPOSE_PROJECT_NAME:-projet-docker}
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    image: ${DOCKERHUB_USER:-local}/projet-docker-web:${TAG:-latest}
+    container_name: web
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_NAME: ${DB_NAME:-test}
+      DB_USER: ${DB_USER:-test}
+      DB_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    networks:
+      - app-network
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1/healthz.php"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    # Système de fichiers en lecture seule : seuls les répertoires
+    # d'exécution d'Apache et /tmp sont inscriptibles (en mémoire).
+    read_only: true
+    tmpfs:
+      - /var/run/apache2
+      - /var/lock/apache2
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+
+  db:
+    build:
+      context: ./db
+    image: ${DOCKERHUB_USER:-local}/projet-docker-db:${TAG:-latest}
+    container_name: db
+    # Pas de "ports" : la base n'est joignable que depuis app-network.
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-test}
+      MYSQL_USER: ${DB_USER:-test}
+      MYSQL_PASSWORD_FILE: /run/secrets/db_password
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+    secrets:
+      - db_password
+      - db_root_password
+    volumes:
+      - db-data:/var/lib/mysql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /var/run/mysqld
+      - /tmp
+    # L'entrypoint MySQL démarre en root pour préparer le volume puis
+    # bascule sur l'utilisateur mysql : seules ces capacités sont nécessaires.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 768M
+
+  # Interface d'administration, lancée uniquement avec : --profile admin
+  adminer:
+    image: adminer:5
+    container_name: adminer
+    profiles: ["admin"]
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+    ports:
+      - "127.0.0.1:8081:8080"
+    networks:
+      - app-network
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  app-network:
+    name: app-network
+    driver: bridge
+
+volumes:
+  db-data:
+
+# Secrets Docker : fichiers générés par scripts/init-secrets.sh, montés
+# dans les conteneurs sous /run/secrets/<nom> (jamais dans l'image ni dans .env).
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  db_root_password:
+    file: ./secrets/db_root_password.txt
