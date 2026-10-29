@@ -1,9 +1,11 @@
 <?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
 require 'db-config.php';
+
+// échappement systématique des données affichées (protection XSS)
+function e(?string $value): string
+{
+  return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+}
 
 function getArticles(PDO $PDO)
 {
@@ -17,11 +19,6 @@ function getArticles(PDO $PDO)
   return $articles;
 }
 ?>
-
-
-
-
-
 <!doctype html>
 <html lang="fr">
 
@@ -32,12 +29,6 @@ function getArticles(PDO $PDO)
   <title>Ma propre image Docker !</title>
 
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-
-  <!-- Bootstrap core CSS -->
-  <link href="../../dist/css/bootstrap.min.css" rel="stylesheet">
-
-  <!-- Custom styles for this template -->
-  <link href="navbar-top-fixed.css" rel="stylesheet">
 </head>
 
 <body>
@@ -101,18 +92,19 @@ function getArticles(PDO $PDO)
         ?>
         <div class="card mt-5">
           <div class="card-header">
-            <h2 class="h3"><?= $article["title"] ?> <small class="text-muted font-italic"></h2>
-            <?= $articleTime ?></small>
+            <h2 class="h3"><?= e($article["title"]) ?> <small class="text-muted font-italic"><?= $articleTime ?></small></h2>
           </div>
           <div class="card-body">
-            <p class="card-text"><?= $article["content"] ?></p>
-            <footer class="blockquote-footer"><cite title="Source Title"><?= $article["author"] ?><cite></footer>
+            <p class="card-text"><?= nl2br(e($article["content"])) ?></p>
+            <footer class="blockquote-footer"><cite title="Auteur"><?= e($article["author"]) ?></cite></footer>
           </div>
         </div>
       <?php
       }
     } catch (PDOException $pe) {
-      echo 'ERREUR :', $pe->getMessage();
+      // le détail technique part dans les logs du conteneur, pas dans la page
+      error_log('Erreur base de données : ' . $pe->getMessage());
+      echo '<div class="alert alert-danger">Impossible de charger les articles pour le moment.</div>';
     }
     ?>
 
