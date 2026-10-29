@@ -4,9 +4,31 @@ subtitle: "Rapport technique — Projet M2"
 author:
   - Ishak MESSAOUDI
   - Mathias BOUCLON
+date: "Octobre 2026"
 lang: fr-FR
 toc: true
 ---
+
+# Livrables
+
+| Livrable | Emplacement |
+|---|---|
+| Dépôt Git | <https://github.com/Spitchy/Projet_Final_Docker> (branche `main`) |
+| Image web (Docker Hub) | <https://hub.docker.com/r/ishakdocker67/projet-docker-web> |
+| Image base de données (Docker Hub) | <https://hub.docker.com/r/ishakdocker67/projet-docker-db> |
+| Pipeline CI/CD | <https://github.com/Spitchy/Projet_Final_Docker/actions> |
+| Rapport technique | ce document (`docs/rapport-technique.pdf` dans le dépôt) |
+| Documentation d'utilisation | `README.md` (et `README.pdf`) à la racine du dépôt |
+
+Déploiement en trois commandes, sur toute machine équipée de Docker :
+
+```bash
+git clone https://github.com/Spitchy/Projet_Final_Docker.git && cd Projet_Final_Docker
+./scripts/init-secrets.sh
+docker compose up -d --build --wait     # puis http://localhost:8080
+```
+
+Le code source complet des fichiers Docker (Dockerfiles, Compose, pipeline) figure en annexe.
 
 # Introduction
 
@@ -165,24 +187,48 @@ db     Up 16 seconds (healthy)   3306/tcp, 33060/tcp
 web    Up 5 seconds (healthy)    0.0.0.0:8080->80/tcp
 ```
 
-L'application répond sur http://localhost:8080.
+L'application répond sur http://localhost:8080 :
+
+![Page d'accueil de l'application conteneurisée (formulaire et liste des articles)](captures/app-accueil.png)
 
 ## 3.3 Test de persistance
 
+Étape 1 : nous avons ajouté un article depuis le formulaire de l'interface web.
+
+![Article « Démonstration de la persistance » ajouté via le formulaire](captures/app-article-ajoute.png)
+
+Étape 2 : suppression puis recréation des conteneurs.
+
 ```
-$ curl -d 'title=Test persistance&author=Ishak&content=...' localhost:8080/validation.php
-302 -> http://localhost:8080/index.php
 $ docker compose down
- Network app-network Removed
+ Container web  Removed
+ Container db   Removed
+ Network app-network  Removed
 $ docker compose up -d --wait
- Container web Healthy
-$ curl -s localhost:8080/ | grep -c 'Test persistance'
-1
+ Container db   Healthy
+ Container web  Healthy
+$ docker compose ps
+NAME  IMAGE                                   STATUS                   PORTS
+db    ishakdocker67/projet-docker-db:latest   Up 11 seconds (healthy)  3306/tcp, 33060/tcp
+web   ishakdocker67/projet-docker-web:latest  Up 5 seconds (healthy)   0.0.0.0:8080->80/tcp
 ```
+
+Étape 3 : après rechargement de la page, l'article est toujours présent.
+
+![Même page après docker compose down puis up : l'article a été conservé](captures/app-apres-redemarrage.png)
 
 `docker compose down` supprime les conteneurs et le réseau, mais pas les volumes nommés. Au redémarrage, MySQL trouve un `/var/lib/mysql` déjà initialisé : le script d'initialisation n'est pas rejoué et les données sont intactes. Seul `docker compose down -v` efface le volume.
 
-Le même test a validé la correction XSS : un article dont le titre est `<script>alert(1)</script>` s'affiche sous la forme `&lt;script&gt;alert(1)&lt;/script&gt;`. Un formulaire sans auteur renvoie un code 400 et le message « Il manque le nom de l'auteur ».
+Nous avons aussi validé la correction XSS avec un article piégé :
+
+- titre : `<script>alert("XSS")</script>` ;
+- contenu : `<img src=x onerror=alert(1)>`.
+
+Il s'affiche comme du texte et aucun script n'est exécuté :
+
+![Article malveillant affiché sous forme de texte grâce à htmlspecialchars](captures/app-xss-echappe.png)
+
+Un formulaire sans auteur renvoie un code 400 et le message « Il manque le nom de l'auteur de l'article ».
 
 # Partie 4 — Réseaux et communication inter-conteneurs
 
@@ -370,11 +416,11 @@ Le pipeline exécuté sur `main` (commit `d9bc804`) a réussi ses quatre jobs en
 | [`ishakdocker67/projet-docker-web`](https://hub.docker.com/r/ishakdocker67/projet-docker-web) | `latest`, `d9bc8046b8cf3b624319e31ef49259964ce0b99b` |
 | [`ishakdocker67/projet-docker-db`](https://hub.docker.com/r/ishakdocker67/projet-docker-db) | `latest`, `d9bc8046b8cf3b624319e31ef49259964ce0b99b` |
 
-![Exécution réussie du pipeline GitHub Actions sur main](ci-pipeline.png)
+![Exécution réussie du pipeline GitHub Actions sur main](captures/ci-pipeline.png)
 
-![Tags de l'image web sur Docker Hub (amd64 : 167,94 Mo, arm64 : 161,08 Mo compressés)](dockerhub-tags-web.png)
+![Tags de l'image web sur Docker Hub (amd64 : 167,94 Mo, arm64 : 161,08 Mo compressés)](captures/dockerhub-tags-web.png)
 
-![Tags de l'image db sur Docker Hub (amd64 : 232,15 Mo, arm64 : 227,04 Mo compressés)](dockerhub-tags-db.png)
+![Tags de l'image db sur Docker Hub (amd64 : 232,15 Mo, arm64 : 227,04 Mo compressés)](captures/dockerhub-tags-db.png)
 
 Docker Hub affiche les tailles **compressées** : 168 Mo pour l'image web (contre 716 Mo décompressés en local) et 232 Mo pour la base. C'est le volume réellement téléchargé lors d'un `docker pull`.
 
@@ -413,6 +459,7 @@ Le `README.md` couvre l'architecture, les prérequis, les commandes de déploiem
 - **Capacités minimales de MySQL** : `cap_drop: ALL` seul empêche l'entrypoint de démarrer, car il doit changer le propriétaire des répertoires puis passer à l'utilisateur `mysql`. Nous avons déterminé par essais successifs les quatre capacités indispensables (partie 5.3).
 - **Apache non-root sur le port 80** : pas besoin de `NET_BIND_SERVICE` ni de changer de port, car Docker abaisse `ip_unprivileged_port_start` à 0 dans les conteneurs.
 - **`curl http://db:3306`** : la commande du sujet renvoie une erreur HTTP/0.9, ce qui est normal pour un port MySQL. L'option `--http0.9` permet de montrer la réponse du serveur.
+- **Accents corrompus dans l'article d'exemple** : en vérifiant l'interface, nous avons vu « crÃ©Ã© » au lieu de « créé ». Le client `mysql` de l'entrypoint lit les scripts d'initialisation en latin1, alors que le fichier est en UTF-8. Nous avons ajouté `SET NAMES utf8mb4;` en tête de `01-articles.sql`. Les articles saisis via le formulaire n'étaient pas concernés, car PDO se connecte déjà en `charset=utf8mb4`.
 - **Vulnérabilités de l'image de base** : la purge des compilateurs n'a de sens que grâce au build multi-stage. Les CVE sans correctif ont été documentées plutôt que masquées, et le scan de la CI les signalera dès qu'un correctif sera publié.
 
 # Conclusion

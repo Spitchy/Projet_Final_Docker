@@ -51,6 +51,8 @@ Le rapport technique détaillé (justification de chaque instruction, mesures, r
 │   └── init/01-articles.sql       # création de la table articles
 ├── docs/
 │   ├── architecture.mmd / .png    # schéma d'architecture (Mermaid)
+│   ├── build-pdf.sh               # génération des PDF (rapport + README)
+│   ├── captures/                  # captures d'écran utilisées dans le rapport
 │   ├── Dockerfile.naive           # version non optimisée, pour comparaison
 │   └── rapport-technique.md / .pdf
 ├── scripts/init-secrets.sh        # génère .env et les mots de passe
