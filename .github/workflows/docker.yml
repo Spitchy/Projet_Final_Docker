@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     container: php:8.2-cli
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: php -l sur tous les fichiers
         run: find src -name '*.php' -print0 | xargs -0 -n1 php -l
@@ -41,7 +41,7 @@ jobs:
       DOCKERHUB_USER: ci
       TAG: ${{ github.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Étape de test du Dockerfile web (php -l dans l'image)
         run: docker build --target test -f web/Dockerfile .
@@ -114,6 +114,8 @@ jobs:
     needs: build-test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     strategy:
+      # une image en échec n'annule pas la publication de l'autre
+      fail-fast: false
       matrix:
         include:
           - image: projet-docker-web
@@ -123,7 +125,22 @@ jobs:
             context: ./db
             dockerfile: db/Dockerfile
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+
+      # Nom d'utilisateur nettoyé (espaces, retours à la ligne, majuscules)
+      # pour éviter un nom d'image invalide si le secret a été mal collé.
+      - name: Vérification du compte Docker Hub
+        id: hub
+        env:
+          HUB_USER: ${{ vars.DOCKERHUB_USERNAME || secrets.DOCKERHUB_USERNAME }}
+          HUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          user=$(printf '%s' "$HUB_USER" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+          if [ -z "$user" ] || [ -z "$HUB_TOKEN" ]; then
+            echo "::error::DOCKERHUB_USERNAME ou DOCKERHUB_TOKEN manquant (Settings > Secrets and variables > Actions)"
+            exit 1
+          fi
+          echo "user=$user" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-qemu-action@v3
 
@@ -132,14 +149,14 @@ jobs:
       - name: Connexion à Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ steps.hub.outputs.user }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Tags (latest + SHA du commit)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}
+          images: ${{ steps.hub.outputs.user }}/${{ matrix.image }}
           tags: |
             type=raw,value=latest
             type=sha,format=long,prefix=
