@@ -36,7 +36,6 @@ annex() { # annex <fichier> <langage>
   annex scripts/init-secrets.sh bash
   annex .dockerignore bash
   annex db/.dockerignore bash
-  annex .trivyignore bash
   annex web/apache/000-default.conf apache
   annex web/apache/security.conf apache
   annex web/php/app.ini ini

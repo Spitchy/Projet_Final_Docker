@@ -277,18 +277,18 @@ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
 | Image | Premier scan | Après corrections | Évolution |
 |---|---|---|---|
 | web | 120 (117 HIGH, **3 CRITICAL**) | 59 (58 HIGH, **1 CRITICAL**) | −51 % |
-| db | 35 (33 HIGH, **2 CRITICAL**) | 26 (25 HIGH, **1 CRITICAL**) | −26 % |
+| db | 35 (33 HIGH, **2 CRITICAL**) | **0** (0 HIGH, **0 CRITICAL**) | −100 % |
 
 Corrections appliquées :
 
 1. **web — `linux-libc-dev` (CRITICAL)** : ce paquet d'en-têtes noyau n'est utile qu'à la compilation. L'image `php:8.2-apache` garde la chaîne de compilation (`gcc`, `g++`, `make`, `libc6-dev`...) pour `docker-php-ext-install`. Comme nous compilons dans l'étape `builder`, l'image finale peut la supprimer. Cela élimine aussi des dizaines de CVE HIGH (gcc, binutils, perl...).
 2. **web — `apt-get upgrade`** : intègre les correctifs Debian publiés après la construction de l'image de base.
 3. **db — `certifi` (CRITICAL) + `cryptography`, `pyOpenSSL`, `urllib3` (HIGH)** : ces bibliothèques Python sont embarquées par MySQL Shell. Ce client n'est pas nécessaire au serveur, nous l'avons désinstallé.
+4. **db — Go stdlib CVE-2025-68121 (CRITICAL) + 25 CVE HIGH dans `gosu`** : `gosu` est le petit binaire qui permet à l'entrypoint MySQL de passer de root à l'utilisateur `mysql`. Celui de l'image officielle est compilé avec go1.24.6, une version vulnérable (faille de validation des certificats TLS dans `crypto/tls`). Une étape `gosu` du `db/Dockerfile` recompile gosu 1.20 depuis ses sources avec Go 1.27 (compilation croisée pour amd64 et arm64), puis remplace le binaire d'origine. Après correction, Trivy ne trouve plus aucune vulnérabilité HIGH ou CRITICAL dans l'image db.
 
-Vulnérabilités critiques restantes (risque accepté et documenté) :
+Vulnérabilité critique restante (risque accepté et documenté) :
 
-- **web — `libxml2` CVE-2026-6653** : PHP en dépend et Debian ne propose pas encore de correctif (statut *affected*). La CVE concerne en plus la variante *mingw* (Windows) de la bibliothèque. Le scan bloquant de la CI utilise `--ignore-unfixed` : elle échouera dès qu'un correctif existera et que l'image n'aura pas été reconstruite.
-- **db — Go stdlib CVE-2025-68121 dans `gosu`** : `gosu` est le binaire de l'image officielle qui fait passer de root à `mysql` au démarrage. La faille touche la validation de certificats TLS (`crypto/tls`), or `gosu` n'établit aucune connexion réseau : le code vulnérable n'est pas atteignable. La CVE est listée dans `.trivyignore` avec cette justification.
+- **web — `libxml2` CVE-2026-6653** : *use-after-free* dans l'analyse de la DTD interne (`xmlParseInternalSubset`). Un document XML piégé peut provoquer un plantage, donc un déni de service. PHP est lié à libxml2 (extensions `dom`, `xml`, `SimpleXML`), on ne peut donc pas retirer la bibliothèque. Le correctif n'existe que dans libxml2 ≥ 2.11. Debian l'a classé *no-dsa (Minor issue)* pour Debian 13 et ne le corrigera que dans la version suivante (forky). Notre application ne lit jamais de XML : aucune donnée utilisateur n'atteint ce code. Le scan bloquant de la CI utilise `--ignore-unfixed` : il échouera automatiquement dès que Debian publiera un correctif et que l'image n'aura pas été reconstruite. Seule alternative : une image Alpine (Nginx + PHP-FPM), dont le libxml2 n'est pas concerné (voir partie 6.3).
 
 Docker Scout donne un résultat équivalent : `docker scout cves <image>`.
 
@@ -460,7 +460,8 @@ Le `README.md` couvre l'architecture, les prérequis, les commandes de déploiem
 - **Apache non-root sur le port 80** : pas besoin de `NET_BIND_SERVICE` ni de changer de port, car Docker abaisse `ip_unprivileged_port_start` à 0 dans les conteneurs.
 - **`curl http://db:3306`** : la commande du sujet renvoie une erreur HTTP/0.9, ce qui est normal pour un port MySQL. L'option `--http0.9` permet de montrer la réponse du serveur.
 - **Accents corrompus dans l'article d'exemple** : en vérifiant l'interface, nous avons vu « crÃ©Ã© » au lieu de « créé ». Le client `mysql` de l'entrypoint lit les scripts d'initialisation en latin1, alors que le fichier est en UTF-8. Nous avons ajouté `SET NAMES utf8mb4;` en tête de `01-articles.sql`. Les articles saisis via le formulaire n'étaient pas concernés, car PDO se connecte déjà en `charset=utf8mb4`.
-- **Vulnérabilités de l'image de base** : la purge des compilateurs n'a de sens que grâce au build multi-stage. Les CVE sans correctif ont été documentées plutôt que masquées, et le scan de la CI les signalera dès qu'un correctif sera publié.
+- **Vulnérabilités de l'image de base** : la purge des compilateurs n'a de sens que grâce au build multi-stage. La CVE sans correctif (libxml2) est documentée plutôt que masquée : aucune exception n'est déclarée dans la CI, et son scan la signalera dès qu'un correctif sera publié.
+- **Recompilation de gosu** : `go install github.com/tianon/gosu@v1.20` échoue (*no matching versions*), car les tags de gosu (`1.20`) ne respectent pas le format de version des modules Go (`v1.20.0`). Nous récupérons donc les sources au tag voulu (`ADD https://github.com/tianon/gosu.git#1.20`) puis les compilons avec `go build`.
 
 # Conclusion
 

@@ -1,4 +1,24 @@
-# Image de la base de données : MySQL 8.4 (version LTS officielle)
+# syntax=docker/dockerfile:1
+
+# ---------------------------------------------------------------
+# Étape 1 : recompilation de gosu avec une version de Go à jour.
+# Le gosu fourni par mysql:8.4 est compilé avec go1.24.6, touché par
+# la CVE critique CVE-2025-68121 (crypto/tls) signalée par Trivy.
+# Compilation croisée sur la plateforme de build (rapide en CI multi-arch).
+# ---------------------------------------------------------------
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS gosu
+ARG GOSU_VERSION=1.20
+ARG TARGETOS TARGETARCH
+# les tags de gosu ("1.20") ne sont pas des versions de module Go : on récupère
+# les sources au tag voulu puis on compile
+ADD https://github.com/tianon/gosu.git#${GOSU_VERSION} /src
+WORKDIR /src
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build -trimpath -ldflags="-s -w" -o /gosu .
+
+# ---------------------------------------------------------------
+# Étape 2 : image MySQL 8.4 (version LTS officielle)
+# ---------------------------------------------------------------
 FROM mysql:8.4
 
 LABEL org.opencontainers.image.title="projet-docker-db" \
@@ -14,6 +34,9 @@ ENV MYSQL_DATABASE=test \
 # embarque des bibliothèques Python vulnérables (certifi, cryptography...).
 RUN microdnf remove -y mysql-shell \
  && microdnf clean all
+
+# gosu recompilé (utilisé par l'entrypoint pour passer de root à mysql)
+COPY --from=gosu --chmod=0755 /gosu /usr/local/bin/gosu
 
 # Configuration serveur (encodage, désactivation du chargement de fichiers locaux)
 COPY --chown=root:root --chmod=0644 conf.d/ /etc/mysql/conf.d/

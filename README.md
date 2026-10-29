@@ -64,7 +64,6 @@ Le rapport technique détaillé (justification de chaque instruction, mesures, r
 │   └── php/app.ini                # surcharges php.ini de production
 ├── .dockerignore
 ├── .env.example
-├── .trivyignore
 └── docker-compose.yml
 ```
 

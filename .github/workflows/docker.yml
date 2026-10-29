@@ -95,10 +95,9 @@ jobs:
           for img in "ci/${WEB_IMAGE}:${TAG}" "ci/${DB_IMAGE}:${TAG}"; do
             docker run --rm \
               -v /var/run/docker.sock:/var/run/docker.sock \
-              -v "$PWD/.trivyignore:/.trivyignore:ro" \
               "$TRIVY_IMAGE" image --scanners vuln \
               --severity CRITICAL --ignore-unfixed \
-              --ignorefile /.trivyignore --exit-code 1 "$img"
+              --exit-code 1 "$img"
           done
 
       - name: Arrêt de la stack
