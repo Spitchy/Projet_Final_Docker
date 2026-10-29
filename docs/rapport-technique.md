@@ -353,13 +353,24 @@ Ensuite, chaque push sur `main` publie automatiquement les images. Publication m
 
 ```bash
 docker login
-docker tag local/projet-docker-web:latest <user>/projet-docker-web:latest
-docker push <user>/projet-docker-web:latest
+docker tag local/projet-docker-web:latest ishakdocker67/projet-docker-web:latest
+docker push ishakdocker67/projet-docker-web:latest
 # ou, avec DOCKERHUB_USER renseigné dans .env :
 docker compose build && docker compose push
 ```
 
-Vérification : `docker pull <user>/projet-docker-web:latest` sur une autre machine, et l'onglet *Tags* du dépôt Docker Hub.
+Vérification : `docker pull ishakdocker67/projet-docker-web:latest` sur une autre machine, et l'onglet *Tags* du dépôt Docker Hub.
+
+## 7.3 Résultat
+
+Le pipeline exécuté sur `main` (commit `d9bc804`) a réussi ses quatre jobs en 7 min 20 s : lint, build/tests/scan, puis publication des deux images. Tags présents sur Docker Hub, chacun pour `amd64` et `arm64` :
+
+| Dépôt | Tags |
+|---|---|
+| [`ishakdocker67/projet-docker-web`](https://hub.docker.com/r/ishakdocker67/projet-docker-web) | `latest`, `d9bc8046b8cf3b624319e31ef49259964ce0b99b` |
+| [`ishakdocker67/projet-docker-db`](https://hub.docker.com/r/ishakdocker67/projet-docker-db) | `latest`, `d9bc8046b8cf3b624319e31ef49259964ce0b99b` |
+
+La première exécution sur `main` avait échoué avec `invalid tag "/projet-docker-db:latest"`. Le secret `DOCKERHUB_USERNAME` contenait un caractère parasite (probablement un retour à la ligne collé avec la valeur), ce qui coupait le nom d'image en deux. Le workflow nettoie désormais le nom d'utilisateur (suppression des espaces, passage en minuscules) et vérifie la présence des secrets avant toute connexion. Nous avons aussi désactivé `fail-fast` pour qu'une image en échec n'annule plus la publication de l'autre.
 
 # Partie 8 — Tests, documentation et soutenance
 
@@ -381,6 +392,7 @@ Vérification : `docker pull <user>/projet-docker-web:latest` sur une autre mach
 | Lecture seule | `docker exec web touch /etc/x` | refusé |
 | Vulnérabilités | Trivy CRITICAL corrigeables | 0 |
 | Clone vierge | `git clone` puis `init-secrets.sh` et `up` | stack `healthy`, tests OK |
+| Pipeline GitHub Actions | push sur `main` | 4 jobs verts, images publiées |
 
 ## 8.2 Documentation
 

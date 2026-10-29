@@ -95,7 +95,7 @@ docker compose ps
 
 L'application est disponible sur **http://localhost:8080**.
 
-Pour utiliser les images publiées sur Docker Hub au lieu de les construire, renseignez `DOCKERHUB_USER` dans `.env`, puis lancez :
+Pour utiliser les images publiées sur Docker Hub (`ishakdocker67/projet-docker-web` et `ishakdocker67/projet-docker-db`) au lieu de les construire :
 
 ```bash
 docker compose pull && docker compose up -d
@@ -108,7 +108,7 @@ Fichier `.env` (copié depuis [`.env.example`](.env.example), jamais versionné)
 | Variable               | Défaut                 | Description                                              |
 |------------------------|------------------------|----------------------------------------------------------|
 | `COMPOSE_PROJECT_NAME` | `projet-docker`        | Préfixe des ressources Compose (volume, etc.)            |
-| `DOCKERHUB_USER`       | `votre-user-dockerhub` | Compte Docker Hub utilisé pour nommer les images         |
+| `DOCKERHUB_USER`       | `ishakdocker67`        | Compte Docker Hub utilisé pour nommer les images         |
 | `TAG`                  | `latest`               | Tag des images construites ou tirées                     |
 | `WEB_PORT`             | `8080`                 | Port de l'hôte redirigé vers Apache                      |
 | `DB_NAME`              | `test`                 | Nom de la base créée au premier démarrage                |
@@ -186,10 +186,10 @@ docker exec web env | grep -i pass         # seulement DB_PASSWORD_FILE, aucun m
 
 ```bash
 docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-  aquasec/trivy:0.76.1 image --severity HIGH,CRITICAL <user>/projet-docker-web:latest
+  aquasec/trivy:0.76.1 image --severity HIGH,CRITICAL ishakdocker67/projet-docker-web:latest
 
 # ou avec Docker Scout
-docker scout cves <user>/projet-docker-web:latest
+docker scout cves ishakdocker67/projet-docker-web:latest
 ```
 
 ### 7.6 Déploiement sur une autre machine
@@ -260,7 +260,14 @@ export TAG=$(git rev-parse HEAD)
 docker compose build && docker compose push
 ```
 
-Pour vérifier la publication : `docker pull <user>/projet-docker-web:latest`, ou la page `https://hub.docker.com/r/<user>/projet-docker-web`.
+**Images publiées** (multi-architecture `amd64` / `arm64`) :
+
+| Image | Docker Hub | Tags |
+|---|---|---|
+| `ishakdocker67/projet-docker-web` | https://hub.docker.com/r/ishakdocker67/projet-docker-web | `latest`, `<sha du commit>` |
+| `ishakdocker67/projet-docker-db`  | https://hub.docker.com/r/ishakdocker67/projet-docker-db  | `latest`, `<sha du commit>` |
+
+Pour vérifier la publication : `docker pull ishakdocker67/projet-docker-web:latest`, ou la page `https://hub.docker.com/r/ishakdocker67/projet-docker-web`.
 
 ## 11. Dépannage
 
