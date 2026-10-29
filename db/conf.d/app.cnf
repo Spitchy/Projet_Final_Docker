@@ -1,0 +1,7 @@
+[mysqld]
+character-set-server = utf8mb4
+collation-server     = utf8mb4_unicode_ci
+# interdit LOAD DATA LOCAL INFILE (lecture de fichiers côté client)
+local_infile         = OFF
+# pas de résolution DNS inverse à chaque connexion
+skip-name-resolve

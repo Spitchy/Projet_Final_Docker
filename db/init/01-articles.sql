@@ -1,9 +1,8 @@
-CREATE DATABASE IF NOT EXISTS test CHARACTER SET utf8;
-CREATE USER IF NOT EXISTS 'test'@'localhost' IDENTIFIED BY 'test';
-GRANT ALL PRIVILEGES ON test.* TO 'test'@'localhost';
-
-
-USE test;
+-- La base et l'utilisateur applicatif sont créés par l'image officielle MySQL
+-- à partir de MYSQL_DATABASE / MYSQL_USER / MYSQL_PASSWORD_FILE
+-- (l'utilisateur 'test'@'localhost' d'origine ne pouvait pas se connecter
+-- depuis le conteneur web).
+-- Ce script n'est exécuté qu'au premier démarrage, quand le volume est vide.
 
 CREATE TABLE IF NOT EXISTS articles (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -12,4 +11,7 @@ CREATE TABLE IF NOT EXISTS articles (
     date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     content TEXT NULL,
     PRIMARY KEY(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO articles (title, author, content) VALUES
+    ('Bienvenue', 'Équipe projet', 'Premier article créé automatiquement au démarrage de la base de données.');

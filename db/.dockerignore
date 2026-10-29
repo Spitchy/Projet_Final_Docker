@@ -1,0 +1,4 @@
+# Seuls conf.d/ et init/ sont nécessaires à la construction de l'image
+*
+!conf.d/
+!init/
