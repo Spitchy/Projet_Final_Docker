@@ -218,6 +218,17 @@ Ce scénario est rejoué à chaque push par la CI, sur un runner vierge.
 | En-têtes HTTP de sécurité                 | `web/apache/000-default.conf`         |
 | Correction XSS et validation              | `src/index.php`, `src/validation.php` |
 | Scan Trivy bloquant en CI                 | `.github/workflows/docker.yml`        |
+| Compilateurs supprimés de l'image finale  | `web/Dockerfile` (`apt-get purge $PHPIZE_DEPS`) |
+| MySQL Shell retiré, `gosu` recompilé avec Go 1.27 | `db/Dockerfile`               |
+
+Résultat du scan Trivy (sévérités HIGH et CRITICAL) :
+
+| Image | Avant corrections | Après corrections |
+|-------|-------------------|-------------------|
+| web   | 120 (dont 3 CRITICAL) | 59 (dont 1 CRITICAL) |
+| db    | 35 (dont 2 CRITICAL)  | **0** |
+
+La seule CVE critique restante (`libxml2`, CVE-2026-6653) n'a pas de correctif dans Debian 13. Debian l'a classée comme mineure et ne la corrigera que dans sa prochaine version. Elle n'est déclenchée que par l'analyse d'un document XML piégé, et l'application ne lit jamais de XML. Le scan de la CI échouera automatiquement dès qu'un correctif sera publié. Les détails sont dans le rapport, partie 5.1.
 
 ## 9. Optimisation des images
 
@@ -231,6 +242,8 @@ L'image optimisée n'ajoute que **2 Mo** à l'image de base, contre 176 Mo pour 
 - build multi-stage (compilation des extensions dans une étape séparée) ;
 - une seule couche `apt` nettoyée, avec `--no-install-recommends` ;
 - un `.dockerignore` en liste blanche.
+
+Sur Docker Hub, les images sont stockées compressées : environ **168 Mo** pour `projet-docker-web` et **232 Mo** pour `projet-docker-db`, c'est-à-dire ce qu'un `docker pull` télécharge réellement.
 
 Les choix et les mesures sont détaillés dans le rapport, partie 6.
 

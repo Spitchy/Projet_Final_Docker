@@ -113,7 +113,10 @@ Pas de `CMD` ni d'`ENTRYPOINT` : ceux de l'image officielle (`apache2-foreground
 
 | Instruction | Rôle et justification |
 |---|---|
+| `FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS gosu` | Étape de compilation de `gosu`. Elle s'exécute sur l'architecture de la machine de build et compile pour l'architecture cible (`GOOS`/`GOARCH`) : pas d'émulation QEMU, même pour l'image arm64. |
+| `ADD https://github.com/tianon/gosu.git#1.20 /src` + `go build` | Récupère les sources de gosu 1.20 et les compile avec Go 1.27 (`CGO_ENABLED=0`, binaire statique, `-trimpath -ldflags="-s -w"`). Le gosu de l'image officielle est compilé avec go1.24.6, qui contient une CVE critique (voir partie 5.1). |
 | `FROM mysql:8.4` | Image officielle, version LTS. |
+| `COPY --from=gosu /gosu /usr/local/bin/gosu` | Remplace le binaire vulnérable par celui que nous avons compilé. L'entrypoint officiel l'utilise sans modification. |
 | `ENV MYSQL_DATABASE=test MYSQL_USER=test` | Valeurs par défaut non sensibles. **Aucun mot de passe** : ils arrivent au démarrage via `MYSQL_PASSWORD_FILE` et `MYSQL_ROOT_PASSWORD_FILE`. |
 | `RUN microdnf remove -y mysql-shell && microdnf clean all` | MySQL Shell est un client d'administration inutile au serveur. Il embarque des bibliothèques Python vulnérables, dont une CVE critique sur `certifi` (voir partie 5). |
 | `COPY conf.d/ /etc/mysql/conf.d/` | `utf8mb4` par défaut, `local_infile=OFF` (empêche la lecture de fichiers via `LOAD DATA LOCAL`), `skip-name-resolve`. |
@@ -125,9 +128,10 @@ Le script `articles.sql` a été adapté :
 
 - il ne crée plus la base ni l'utilisateur, c'est l'entrypoint qui s'en charge avec `'test'@'%'` ;
 - la table est en `utf8mb4` (le jeu `utf8` de MySQL, sur 3 octets, ne gère pas tous les caractères) ;
-- un article d'exemple est inséré.
+- un article d'exemple est inséré ;
+- `SET NAMES utf8mb4;` en tête de fichier, pour que les accents soient bien interprétés (voir partie 8.3).
 
-Le processus `mysqld` tourne sous l'utilisateur `mysql` (UID 999) : l'entrypoint officiel abandonne les droits root avec `gosu`. Nous l'avons vérifié avec `grep Uid /proc/1/status`, qui renvoie `999`.
+Le processus `mysqld` tourne sous l'utilisateur `mysql` (UID 999) : l'entrypoint officiel abandonne les droits root avec `gosu`, que nous avons recompilé. Nous l'avons vérifié avec `grep Uid /proc/1/status`, qui renvoie `999`.
 
 ## 2.3 Bonnes pratiques
 
@@ -444,7 +448,7 @@ La première exécution sur `main` avait échoué avec `invalid tag "/projet-doc
 | Isolation | `nc -z localhost 3306` | fermé |
 | Non-root | `docker exec web id` | `uid=33(www-data)` |
 | Lecture seule | `docker exec web touch /etc/x` | refusé |
-| Vulnérabilités | Trivy CRITICAL corrigeables | 0 |
+| Vulnérabilités | Trivy CRITICAL corrigeables | 0 (image db : 0 HIGH / CRITICAL) |
 | Clone vierge | `git clone` puis `init-secrets.sh` et `up` | stack `healthy`, tests OK |
 | Pipeline GitHub Actions | push sur `main` | 4 jobs verts, images publiées |
 
