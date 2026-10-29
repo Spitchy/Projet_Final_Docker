@@ -1,1 +1,14 @@
+# macOS
 .DS_Store
+
+# Variables d'environnement locales (contiennent les mots de passe)
+.env
+
+# Fichiers temporaires / éditeurs
+*.log
+*.swp
+.idea/
+.vscode/
+
+# Résultats de scan générés localement
+trivy-*.txt
