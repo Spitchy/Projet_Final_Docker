@@ -1,0 +1,5 @@
+# Le contexte de build de l'image web n'a besoin que de src/ et web/
+*
+!src/
+!web/
+web/Dockerfile
