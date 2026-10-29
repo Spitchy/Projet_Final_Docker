@@ -1,0 +1,6 @@
+# Vulnérabilités acceptées après analyse (voir docs/rapport-technique.md, partie 5)
+
+# Go stdlib crypto/tls dans le binaire gosu de l'image officielle mysql:8.4.
+# gosu n'est utilisé qu'au démarrage pour passer de root à l'utilisateur mysql
+# et n'ouvre aucune connexion TLS : code vulnérable non atteignable.
+CVE-2025-68121

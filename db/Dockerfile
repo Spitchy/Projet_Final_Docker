@@ -10,6 +10,11 @@ LABEL org.opencontainers.image.title="projet-docker-db" \
 ENV MYSQL_DATABASE=test \
     MYSQL_USER=test
 
+# MySQL Shell (client d'administration) n'est pas utile au serveur et
+# embarque des bibliothèques Python vulnérables (certifi, cryptography...).
+RUN microdnf remove -y mysql-shell \
+ && microdnf clean all
+
 # Configuration serveur (encodage, désactivation du chargement de fichiers locaux)
 COPY --chown=root:root --chmod=0644 conf.d/ /etc/mysql/conf.d/
 

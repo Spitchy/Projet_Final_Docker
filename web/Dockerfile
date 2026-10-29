@@ -27,11 +27,15 @@ LABEL org.opencontainers.image.title="projet-docker-web" \
       org.opencontainers.image.description="Application PHP articles (Apache + PHP 8.2)" \
       org.opencontainers.image.source="https://github.com/Spitchy/Projet_Final_Docker"
 
-# Mises à jour de sécurité + curl (healthcheck) et ping (tests réseau),
-# puis nettoyage du cache apt dans la même couche.
+# Mises à jour de sécurité + curl (healthcheck) et ping (tests réseau).
+# Les compilateurs fournis par l'image de base ($PHPIZE_DEPS) ne servent
+# qu'à compiler les extensions (étape builder) : on les supprime ici,
+# ce qui retire aussi linux-libc-dev (CVE critique signalée par Trivy).
+# Le cache apt est nettoyé dans la même couche.
 RUN apt-get update \
  && apt-get upgrade -y \
  && apt-get install -y --no-install-recommends curl iputils-ping \
+ && apt-get purge -y --auto-remove $PHPIZE_DEPS libc6-dev linux-libc-dev \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 

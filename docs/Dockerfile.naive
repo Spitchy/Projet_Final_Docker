@@ -1,0 +1,10 @@
+# Version "naïve" de l'image web, conservée uniquement pour comparer
+# la taille et la sécurité avec web/Dockerfile (voir rapport, partie 6).
+# Ne pas utiliser en production.
+FROM php:8.2-apache
+RUN apt-get update
+RUN apt-get install -y curl iputils-ping vim git unzip
+RUN docker-php-ext-install pdo_mysql mysqli
+COPY . /var/www/html/
+RUN chmod -R 777 /var/www/html
+EXPOSE 80
